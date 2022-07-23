@@ -1,0 +1,189 @@
+---
+title: "R CASE STUDY 2 (Credit card)"
+author: "Salman"
+date: "20/03/2022"
+output: html_document
+---
+
+```{r}
+Customer <- read.csv("Customer Acqusition.csv")
+Customer <- Customer[, c(2:8)]
+
+Repayment <- read.csv("Repayment.csv")
+Repayment <- Repayment[, c(2:4)]
+Repayment <- na.omit(Repayment)
+
+spend <- read.csv("spend.csv")
+spend <- spend[, c(2:5)]
+```
+
+Question 1.
+
+a.
+```{r}
+Customer$Age[Customer$Age < 18] <- mean(Customer$Age)
+Customer$Age[Customer$Age < 18]
+```
+
+b.
+```{r}
+library(dplyr)
+Customer_spend <- Customer %>% inner_join(spend, by = "Customer")
+
+Customer_spend$Amount[Customer_spend$Amount > Customer_spend$Limit] <- Customer_spend$Limit[Customer_spend$Amount > Customer_spend$Limit]/2
+Customer_spend$Amount[Customer_spend$Amount > Customer_spend$Limit]
+```
+
+c.
+```{r}
+Customer_Repayment <- Customer %>% inner_join(Repayment, by = "Customer")
+
+Customer_Repayment$Amount[Customer_Repayment$Amount > Customer_Repayment$Limit] <- Customer_Repayment$Limit[Customer_Repayment$Amount > Customer_Repayment$Limit]
+Customer_Repayment$Amount[Customer_Repayment$Amount > Customer_Repayment$Limit]
+```
+
+Question 2.
+
+a.
+```{r}
+Customer %>% distinct(Customer) %>% summarize(Count_of_Customers = n())
+```
+
+b.
+```{r}
+Customer %>% distinct(Segment) %>% summarize(Count_of_Categories = n())
+```
+
+c.
+```{r}
+library(lubridate)
+spend$Month <- dmy(spend$Month)
+spend$Monthly <- month(spend$Month, label = TRUE, abbr = FALSE)
+spend$Yearly <- year(spend$Month)
+
+spend %>% group_by(Yearly, Monthly) %>% summarize(average_monthly_spend = mean(Amount))
+```
+
+d.
+```{r}
+Repayment$Month <- dmy(Repayment$Month)
+Repayment$Monthly <- month(Repayment$Month, label = TRUE, abbr = FALSE)
+Repayment$Yearly <- year(Repayment$Month)
+
+Repayment %>% group_by(Yearly, Monthly) %>% summarize(average_monthly_repayment = mean(Amount))
+```
+
+e.
+```{r}
+Customer_spend_Repayment <- Customer_spend %>% inner_join(Repayment, by = "Customer")
+colnames(Customer_spend_Repayment)[c(10, 12)] <- c("Spend_Amount", "Repayment_Amount")
+
+Profit <- Customer_spend_Repayment %>% group_by(Yearly, Monthly) %>% summarize(Sum_Spend_Amount = sum(Spend_Amount), Sum_Repayment_Amount = sum(Repayment_Amount)) %>% mutate(Monthly_Profit = Sum_Repayment_Amount - Sum_Spend_Amount) %>% mutate(Interest_Earned = 2.9*Monthly_Profit/100)
+print(Profit)
+```
+
+f.
+```{r}
+Top_5_Product_Types <- spend %>% group_by(Type) %>% summarize(Count = n()) %>% arrange(desc(Count)) %>% slice_head(n=5)
+print(Top_5_Product_Types)
+```
+
+g.
+```{r}
+Max_Spend_City <- Customer_spend %>% group_by(City) %>% summarize(Total_Spend = sum(Amount)) %>% slice_max(Total_Spend)
+print(Max_Spend_City)
+```
+
+h.
+```{r}
+Customer_spend <- Customer_spend %>% mutate(Age_Group = cut(Age, breaks=c(18, 26, 34, 42, 50, 58, 66, 74, 82)))
+
+Max_Spend_Age_Group <- Customer_spend %>% group_by(Age_Group) %>% summarize(Total_Spend = sum(Amount)) %>% slice_max(Total_Spend)
+print(Max_Spend_Age_Group)
+```
+
+i.
+```{r}
+Top_10_Repayment_Customers <- Customer_Repayment %>% group_by(Customer) %>% summarize(Total_Repayment = sum(Amount)) %>% arrange(desc(Total_Repayment)) %>% slice_head(n=10)
+print(Top_10_Repayment_Customers)
+```
+
+Question 3.
+
+```{r}
+Customer_spend$Month <- dmy(Customer_spend$Month)
+Customer_spend$Year <- year(Customer_spend$Month)
+
+City_Wise_Spend <- Customer_spend %>% group_by(City, Year, Product) %>% summarize(Total_Spend = sum(Amount))
+print(City_Wise_Spend)
+
+library(ggplot2)
+ggplot(City_Wise_Spend, aes(x=City, y=Total_Spend, fill=Product)) + geom_col(position = "dodge") + facet_wrap(~Year) + ggtitle("Amount spended by customers according to year and city")
+```
+
+Question 4.
+
+a.
+```{r}
+Customer_spend$Monthly <- month(Customer_spend$Month, label = TRUE, abbr = FALSE)
+City_Wise_Monthly_Spend <- Customer_spend %>% group_by(City, Monthly) %>% summarize(Total_Spend=sum(Amount))
+
+ggplot(City_Wise_Monthly_Spend, aes(x=City, y=Total_Spend, fill=Monthly)) + geom_col(position = "dodge") + ggtitle("Monthly comparison of total spends, city wise")
+```
+
+b.
+```{r}
+Yearly_Spend_On_Air_Tickets <- Customer_spend %>% group_by(Year, Type) %>% filter(Type == "AIR TICKET") %>% summarize(Total_Spend = sum(Amount))
+
+ggplot(Yearly_Spend_On_Air_Tickets, aes(x=Year, y=Total_Spend, fill="Year")) + geom_col() + ggtitle("Comparison of yearly spend on air tickets")
+```
+
+c.
+```{r}
+Product_Wise_Monthly_Spend <- Customer_spend %>% group_by(Product, Monthly) %>% summarize(Total_Spend = sum(Amount))
+
+ggplot(Product_Wise_Monthly_Spend, aes(x=Product, y=Total_Spend, fill=Monthly)) + geom_col(position = "dodge") + ggtitle("Comparison of monthly spend for each product ")
+
+print("We can see from the above graph that out of all months, highest sales are in January for all the Products")
+```
+
+Question 5.
+
+```{r}
+Customer_Repayment$Month <- dmy(Customer_Repayment$Month)
+Customer_Repayment$Monthly <- month(Customer_Repayment$Month, label = TRUE, abbr = FALSE)
+Customer_Repayment$Yearly <- year(Customer_Repayment$Month)
+
+Summary_Report <- function(product, timeperiod){
+  if(timeperiod=="Monthly"){
+    if(product=="Gold"){
+      result <- Customer_Repayment %>% group_by(City, Customer, Monthly) %>% filter(Product=="Gold") %>% summarize(Total=sum(Amount)) %>% slice_max(Total, n=10) %>% arrange(City, Monthly)
+      return(result)
+    }
+    if(product=="Silver"){
+      result <- Customer_Repayment %>% group_by(City, Customer, Monthly) %>% filter(Product=="Silver") %>% summarize(Total=sum(Amount)) %>% slice_max(Total, n=10) %>% arrange(City, Monthly)
+      return(result)
+    }
+    if(product=="Platinum"){
+      result <- Customer_Repayment %>% group_by(City, Customer, Monthly) %>% filter(Product=="Platinum") %>% summarize(Total=sum(Amount)) %>% slice_max(Total, n=10) %>% arrange(City, Monthly)
+      return(result)
+    }
+  }
+  if(timeperiod=="Yearly"){
+    if(product=="Gold"){
+      result <- Customer_Repayment %>% group_by(City, Customer, Yearly) %>% filter(Product=="Gold") %>% summarize(Total=sum(Amount)) %>% slice_max(Total, n=10) %>% arrange(City, Yearly)
+      return(result)
+    }
+    if(product=="Silver"){
+      result <- Customer_Repayment %>% group_by(City, Customer, Yearly) %>% filter(Product=="Silver") %>% summarize(Total=sum(Amount)) %>% slice_max(Total, n=10) %>% arrange(City, Yearly)
+      return(result)
+    }
+    if(product=="Platinum"){
+      result <- Customer_Repayment %>% group_by(City, Customer, Yearly) %>% filter(Product=="Platinum") %>% summarize(Total=sum(Amount)) %>% slice_max(Total, n=10) %>% arrange(City, Yearly)
+      return(result)
+    }
+  }
+}
+
+Summary_Report("Gold", "Monthly")
+```
